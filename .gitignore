@@ -1,0 +1,22 @@
+# Node
+node_modules/
+*.tgz
+npm-debug.log*
+
+# DSH 运行时/本地状态（不提交）
+*.log
+.dsh/
+dsh-raw-html-v2-state.json
+
+# 本机工具残留
+.npm-cache/
+.alpha-audit/
+.alpha5-audit/
+*.bak*
+*.pre-*
+
+# 编辑器/系统
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
