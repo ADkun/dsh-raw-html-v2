@@ -5,6 +5,21 @@
 > **渲染逻辑复用 v1 渲染引擎**（`assets/vendor/vcp-engine-v1.js` = v1 patch/v6-inject.js 原样复制），
 > 流式 / 字体锁权 / 作用域化 / KaTeX·Mermaid / 自愈层零重写，兼容 rc 与 alpha 全版本线。
 
+## 效果预览
+
+以下均为本插件**实际渲染的 VCP 卡片**（流式逐段长出 · 内置书法字体 · KaTeX/Mermaid/SVG/JS 动画 · 交互控件 · hover 下载单文件 HTML）：
+
+<p>
+  <img src="docs/showcase/weather-magazine-card.png" alt="数据新闻卡：杂志风天气版面" width="49%">
+  <img src="docs/showcase/petrel-book-cover.png" alt="文学装帧：《海燕》封面" width="49%">
+</p>
+<p>
+  <img src="docs/showcase/library-essay-page.png" alt="散文长文：借书记·第17页 纸感排版" width="49%">
+  <img src="docs/showcase/dual-patch-verify.png" alt="技术复合卡：JS 动画 + KaTeX + Mermaid" width="49%">
+</p>
+
+四图分别代表：**数据/编辑风格**、**文学封面装帧**、**散文纸质长文**、**技术复合**（60fps JS 动画 / 公式 / 流程图 / 深色终端面板）。
+
 ## 为什么有 v2
 
 dsh-raw-html v1 依赖「前端 bundle 补丁」注入渲染能力（改 `case"html"` 分支）。DSH 0.1.2-alpha 起
