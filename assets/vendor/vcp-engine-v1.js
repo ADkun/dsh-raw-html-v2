@@ -423,8 +423,15 @@
 
       // token 之前的裸文本
       if (tok.start > i) {
+        var gap = str.slice(i, tok.start)
         if (inContainer) {
-          if (subStart === -1) { out.innerTail = i; return out }
+          if (subStart === -1) {
+            // 容器首个子块前的【纯空白】（换行/缩进）跳过，不归 tail——否则紧跟开标签
+            // 的 <style> 被误归 tail，流式中反复重建、其内容泄漏成可见文本（先生 2026-09-04
+            // 新闻晚报卡实测：`<div id="vcp-root">\n<style>` 掉格式/溢出 CSS 源码）。
+            // 非空白文本（真实内容）仍提前返回归 tail，行为不变。
+            if (!/^\s*$/.test(gap)) { out.innerTail = i; return out }
+          }
         } else {
           if (stack.length === 0) { out.tailStart = i; return out }
         }

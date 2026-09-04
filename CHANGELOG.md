@@ -1,5 +1,19 @@
 # dsh-raw-html-v2 变更日志
 
+## 0.7.29（2026-09-04）· scan 纯空白误归 tail 修复 + F8b CSS 源码残渣检测扩展
+
+> 先生 2026-09-04 新闻晚报卡实测：`<div id="vcp-root">\n<style>`（开标签后换行直跟 style）形态下，
+> scan 容器模式把「首个子块前的纯空白」当内容起点提前返回归 tail → `<style>` 被误判 tail →
+> 流式中反复重建、CSS 源码泄漏成可见文本、整卡掉格式。
+
+### 变更
+- **vcp-engine-v1.js** scan：容器首个子块前的【纯空白】（换行/缩进）跳过、不归 tail——非空白文本
+  仍提前返回归 tail（行为不变）；紧贴形态与顶层逻辑不受影响；
+- **client.js** F8b `vcpDomUnhealthy`：新增 CSS 源码残渣双检测——作用域化选择器形态
+  （`#vcp-msg-N .xxx{…}`）铁证 + 通用「属性:值;属性:值;…」声明块兜底（防选择器被吞后只剩声明块的漏检）；
+- **tests/scan-blank-skip.test.mjs**：纯字符串回归测试（9 用例，不依赖 jsdom，node 直跑）；
+  engine-smoke 16 用例全绿，语法校验全绿。
+
 ## 0.7.28（2026-09-02）· 长卡尾 script 跨流式 chunk 修复（双层：client 切分 + 引擎跨帧续接）
 
 > 先生 JS 循环动画压测（复杂长卡 + rAF 动画长 script）驱动：长 script（~900 字符）跨流式
