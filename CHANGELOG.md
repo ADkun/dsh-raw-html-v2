@@ -1,8 +1,51 @@
 # dsh-raw-html-v2 变更日志
 
+## 0.8.0（2026-10-08）· 响应社区 5 条票据：0.2.x 兼容 + 流式双渲染修复 + 仓库门面清理
+
+> 本版集中处理仓库 open 的 4 条 issue + 1 条 PR（#1–#5），逐条在本地定位复现后修复并回归。
+> 其中 #4 / #5 只在 DSH 0.2.x 线触发（0.1.x 不受影响），#1 / #2 / #3 与 DSH 版本无关。
+
+### 变更
+
+**#4 流式输出期间同一条消息渲染两份（DSH 0.2.x）**
+- 根因：`buildAssistantChildren` 全量遍历 blocks、从不消费 slot 注入的 `groupPart`。0.2.x 对
+  同一条 assistant-step 渲染 reasoning / response 两个分组变体，官方渲染器靠 groupPart 切开
+  内容；插件 shadow 官方渲染器（priority -10）后两个变体各渲染一份完整内容 → 流式期整条消息
+  成对重复，轮次 settle 后过程组收敛才恢复一份；
+- 修复：`lib/client.js` 接收并消费 `props.groupPart`——reasoning 变体只画思考块、response
+  变体跳过思考块；groupPart 缺失（0.1.x / 未分组场景）时不过滤，旧行为逐帧不变；
+- 新增 `tests/group-part.test.mjs`（11 断言：从 client.js 源码提取真实函数 + 轻量 stub）。
+
+**#5 DSH 0.2.x 下美学面板「共 0 个风格」+ 405**
+- 根因（上游 DSH）：官方 `HostConnectionService.register` 内部走
+  `owner.effect(() => owner.webServer.register(route), …)`，而 owner 是 connection 插件自身的
+  Context——0.1.x 其 inject 为 `['webServer','credentials']`，可解析；0.2.x 退化成
+  `['credentials']` → 取不到 webServer → 路由从未挂载 → 请求落进前端静态兜底（只服务
+  GET/HEAD）→ 本 channel 的 POST 一律 405（401 才是「已注册但缺认证」）；
+- 修复：官方路径优先（0.1.x 行为零变化）；探测到前缀路由确实未挂载时，用插件已注入的
+  `webServer` 直注册同前缀路由，并自行实现 connection 的 wire 信封
+  （`{type:'client-request',rpcId,method,payload}` → `{type:'server-response',rpcId,result}`，
+  rpcId 原样回显，否则 connection 层报 rpcId mismatch）；
+- 安全：来源校验只收窄不放开——优先复用 `connection.requestRejection`（Host/Origin fence +
+  浏览器会话认证），接口跨版本变动时退回本机来源白名单；
+- ⚠️ `webServer.register` 对重复 (kind, path) 会抛错，故两条路径必须互斥（不做无脑双注册）。
+
+**#1 / #2 干净 clone 下自带测试跑不起来**
+- `tests/engine-smoke.test.mjs`：硬编码的本机 jsdom 路径改为裸模块名（react 依赖同改）；
+- `tests/slot-split.test.mjs`：`TARGETS` 补上漏掉的 `trimTrailingOpenTag`（0.7.28 起
+  `splitVcpText` 依赖它，缺失导致加载期 ReferenceError → 40 条断言在第一条就归零）；
+- `package.json`：补 `devDependencies`（jsdom ^24 / react ^18.3.1）——此前仓库未声明依赖，
+  克隆后两个测试必然 MODULE_NOT_FOUND；
+- 现状：4 个测试文件全绿（9 + 16 + 40 + 11 = 76 断言），干净 clone 后 `pnpm install` 即可复现。
+
+**#3 系统提示词私域残留清理**
+- 常驻提示词段、源码注释与文档中的「先生定调」「先生实测」等对话残留中性化，共 166 处、
+  覆盖 21 个文件；「克莉丝建议」等外部署名一并去掉（保留建议本体的技术信息）；
+- 只去掉私域称呼，不改变任何指令语义与约束强度。
+
 ## 0.7.29（2026-09-04）· scan 纯空白误归 tail 修复 + F8b CSS 源码残渣检测扩展
 
-> 先生 2026-09-04 新闻晚报卡实测：`<div id="vcp-root">\n<style>`（开标签后换行直跟 style）形态下，
+> 2026-09-04 新闻晚报卡实测：`<div id="vcp-root">\n<style>`（开标签后换行直跟 style）形态下，
 > scan 容器模式把「首个子块前的纯空白」当内容起点提前返回归 tail → `<style>` 被误判 tail →
 > 流式中反复重建、CSS 源码泄漏成可见文本、整卡掉格式。
 
@@ -16,7 +59,7 @@
 
 ## 0.7.28（2026-09-02）· 长卡尾 script 跨流式 chunk 修复（双层：client 切分 + 引擎跨帧续接）
 
-> 先生 JS 循环动画压测（复杂长卡 + rAF 动画长 script）驱动：长 script（~900 字符）跨流式
+> JS 循环动画压测（复杂长卡 + rAF 动画长 script）驱动：长 script（~900 字符）跨流式
 > chunk 时，消息尾部溢出 JS 源码残渣 + script 不执行（刷新才恢复）；短 script（S3/S5 型）
 > 侥幸完整到达不显形——长 script 是切分层盲区的照妖镜。
 
@@ -34,7 +77,7 @@
   `flushTrustedScripts` 即时执行）；已闭合后续帧由 's:'+v 缓存兜住（刷新即生效）；
 - 语法校验全绿；V5 实测：流式全程零残渣、动画收尾即启动、无结束卡顿、无需刷新。
 
-## 文档重组（2026-09-02 · 先生定调 A+B）· DESIGN.md 分层：CORE 常驻 + 正文按需 + 附录排查
+## 文档重组（2026-09-02 · 定调 A+B）· DESIGN.md 分层：CORE 常驻 + 正文按需 + 附录排查
 
 > Token 优化：DESIGN.md 原为「写卡必守与开发档案同层」的单一全量文档；重组后系统提示
 > 只注入 **◈ CORE（≈20 行浓缩必守项）**，字体/色板/排版/铁律细节按需 grep+read 定位，
@@ -50,7 +93,7 @@
 
 ## 0.7.27（2026-09-02）· F8/F8b 自检特征收紧：消除 md 正文 `</div>` 误报
 
-> 先生 2026-09-02 实测：F8 与 F8b 把「md 正文里真实书写的 `</div>` 文本」（测试消息
+> 2026-09-02 实测：F8 与 F8b 把「md 正文里真实书写的 `</div>` 文本」（测试消息
 > 尾部多打的闭合标签）误判为卡泄漏 → 反复清缓存重渲却无法消除真实内容。特征过宽。
 
 ### 变更
@@ -63,7 +106,7 @@
 
 ## 0.7.26（2026-09-02）· F8b DOM 级健康自检：HTML 残渣文本检测兜底
 
-> 先生 2026-09-02 取证：多卡乱态中 `">` 是**卡内独立文本节点**（父为无 class 的 div）——
+> 2026-09-02 取证：多卡乱态中 `">` 是**卡内独立文本节点**（父为无 class 的 div）——
 > 乱源在引擎流式产物内部（长 style 开标签中间帧把开标签尾部固化成文本 `">\n`），md 段
 > 检测（F8）未命中该形态。升级为 DOM 级自检。
 
@@ -77,7 +120,7 @@
 
 ## 0.7.25（2026-09-02）· F8 前端自检兜底：md 泄漏检测 + 按需全量重渲
 
-> 先生 2026-09-02 定调设计：「前端自检机制——中间帧产物异常则对该卡刷新兜底，正常则
+> 2026-09-02 定调设计：「前端自检机制——中间帧产物异常则对该卡刷新兜底，正常则
 > 丝滑固化」。N4 场景（多卡混排流式震动）实测：切分中间态把卡 html 漏进 md 段 → 残象被
 > settle 复用固化 → 结束态乱（刷新才恢复）。
 
@@ -92,7 +135,7 @@
 
 ## 0.7.24（2026-09-02）· F7 扩展：settle 完整性补跑（KaTeX/Mermaid 滞留「渲染中」）
 
-> 先生 2026-09-02 大杂烩压测卡实测：公式一直显示「渲染中」占位、Mermaid 不出图，刷新才
+> 2026-09-02 大杂烩压测卡实测：公式一直显示「渲染中」占位、Mermaid 不出图，刷新才
 > 正常。根因：引擎的 KaTeX/Mermaid 后处理由 `scheduleMath`（依赖流式帧 + lastMathEl 挂载
 > ref）驱动——settle 复用路径上 lastMathEl 脱离/无新引擎帧 → 后处理永不触发 → 占位滞留。
 
@@ -108,7 +151,7 @@
 
 ## 0.7.23（2026-09-02）· F7 修复：settle 后卡内 style 未被 CSSOM 收录 → 整卡掉格式/黑体
 
-> 先生 2026-09-02 取证链（决定性）：规则在 DOM（带 !important、特异性足够）、@font-face
+> 2026-09-02 取证链（决定性）：规则在 DOM（带 !important、特异性足够）、@font-face
 > 在全局、.mast 计算字体却是系统链；而 console 手动 `setProperty('font-family',…,
 > 'important')` 后立即生效 → 判定：**卡内 <style> 规则没有被浏览器 CSSOM 收录**
 > （style 元素存在且 textContent 完整，但样式表未应用）→ 整卡类规则失效（掉格式 +
@@ -122,7 +165,7 @@
 
 ## 0.7.22（2026-09-02）· F6 修复：流式生成的 script 永不 eval（增量路径漏 flush）
 
-> 先生 2026-09-02 实测链（决定性）：注册表有 script code、eval 机制正常、但页面点按钮报
+> 2026-09-02 实测链（决定性）：注册表有 script code、eval 机制正常、但页面点按钮报
 > `probeTap is not defined`、刷新后才正常。根因（引擎源码实证）：`flushTrustedScripts`
 > **只在 fullRender 调用**——流式增量路径 parseFrag 里 extract 把 script 提进队列后从不
 > flush → script 永不 eval；settle memo 复用跳过引擎 fullRender（v0.7.16）→ eval 永远
@@ -137,7 +180,7 @@
 
 ## 0.7.21（2026-09-02）· F5 修复：下载文件缺全局 @font-face → 本地打开艺术字黑体
 
-> 先生 2026-09-02 实测：下载 HTML 本地打开后 Lanxi 艺术字回退黑体。根因：Lanxi 字体由
+> 2026-09-02 实测：下载 HTML 本地打开后 Lanxi 艺术字回退黑体。根因：Lanxi 字体由
 > 插件启动时**全局注入 document head**（ensureGlobalFonts），不在卡片 style 内——
 > downloadCard 只打包卡内/卡尾 style → 下载文件无 Lanxi @font-face 定义 → 黑体。
 
@@ -152,7 +195,7 @@
 
 ## 0.7.20（2026-09-02）· F4 修复：input 桥对 contenteditable 输入框抛 Illegal invocation
 
-> 先生 2026-09-02 实测：点 input 桥按钮 → `sendText → setTextareaValue` 抛
+> 2026-09-02 实测：点 input 桥按钮 → `sendText → setTextareaValue` 抛
 > `TypeError: Illegal invocation`。根因：`findTextarea` 在无 textarea 的 composer 上
 > 回退命中 contenteditable 富文本元素，而旧实现按 tagName 选 HTMLInputElement 的
 > 原生 value setter 写入 → setter.call(div) 对非 INPUT 元素抛 Illegal invocation。
@@ -166,7 +209,7 @@
 
 ## 0.7.19（2026-09-02）· F3c 修复：完成保活窗口（占位框三现根治）
 
-> 先生 2026-09-02 复验：0.7.18 后完成瞬间仍闪「VCP视觉卡片·滚动到附近自动渲染」占位框。
+> 2026-09-02 复验：0.7.18 后完成瞬间仍闪「VCP视觉卡片·滚动到附近自动渲染」占位框。
 > 根因升级认知：DSH 流式状态存在**非 running 中间帧**（思考↔回答切换等），会把
 > 「上一帧还在流式」（lastStreamingRef）刷成 false → 完成帧的 justSettled 闸门失灵。
 
@@ -182,7 +225,7 @@
 
 ## 0.7.18（2026-09-02）· F3b 修复：完成瞬间占位框复现（完成帧立即置位 hot）
 
-> 先生 2026-09-02 复验：0.7.17 后完成瞬间仍闪「渲染中蓝色占位框→卡」。根因：settle
+> 2026-09-02 复验：0.7.17 后完成瞬间仍闪「渲染中蓝色占位框→卡」。根因：settle
 > 首帧保活（justSettled）只罩住结束后的第一帧，而 IO 观察的 hot 置位依赖异步 decide
 > 回调——期间若还有第二、三帧渲染（status/内容事件分批推送），hot 仍未置位 → 引擎段
 > 降级占位框再升级。
@@ -197,7 +240,7 @@
 
 ## 0.7.17（2026-09-02）· F3 修复：收尾「虚线框→卡」闪（settle 首帧保活）
 
-> 先生 2026-09-02 实测（F2 修复后暴露）：渲染完成瞬间卡片整体闪成「▦ VCP 视觉卡片」
+> 2026-09-02 实测（F2 修复后暴露）：渲染完成瞬间卡片整体闪成「▦ VCP 视觉卡片」
 > 虚线框（VcpLite 占位）再变回卡片。根因：消息完成帧 streaming=false，而 IO 热窗的
 > hot 尚未置位 → isFull=false → 引擎段降级 VcpLite 一帧 → IO 回调赶到 setHot(true)
 > 又升级回卡 → 视觉虚线框闪。
@@ -212,7 +255,7 @@
 
 ## 0.7.16（2026-09-02）· F2 修复：流式收尾「完成后再闪一下」
 
-> 先生 2026-09-02 实测：卡片流式起始已不闪（F1 修复生效），但**全部内容输出完成后仍
+> 2026-09-02 实测：卡片流式起始已不闪（F1 修复生效），但**全部内容输出完成后仍
 > 闪一下**。根因（源码实证）：引擎 settle 帧（streaming=false）走 `fullRender`——而
 > `fullRender` 不查缓存、每次 `resetF()` + 全新建 React 树；与流式闭合帧的 fullRender
 > 叠加，等于同一张卡在结束瞬间被两次全新构建 commit → 视觉闪。
@@ -227,7 +270,7 @@
 
 ## 0.7.15（2026-09-02）· F1 修复：流式起始「源码闪一帧」
 
-> 先生 2026-09-02 长卡流式实测：卡片流式正常，但**卡片出现前有代码/源码闪一下**。
+> 2026-09-02 长卡流式实测：卡片流式正常，但**卡片出现前有代码/源码闪一下**。
 > 根因：vcp-root 开标签逐字输出时 `id="vcp-root"` 尚未凑齐 → `findVcpOpen` 识别不到 →
 > 半截 HTML 落入 md 段被渲染成源码样文本（1~3 帧），id 完整后转 pending 才正常。
 
@@ -242,7 +285,7 @@
 
 ## 0.7.14（2026-09-02）· md 代码围栏自绘：根治官方 MarkdownText「reading 'code'」崩溃
 
-> 先生 2026-09-02 实测：带 ``` 代码块的纯 md 消息，控制台报 `TypeError: Cannot read
+> 2026-09-02 实测：带 ``` 代码块的纯 md 消息，控制台报 `TypeError: Cannot read
 > properties of undefined (reading 'code')`（官方 MarkdownText 的 fence 渲染路径缺陷，
 > 孤立/流式半截 fence 触发），VcpMdSafe 整段降级 → **普通文字陪葬**（消息里一个代码块
 > 崩 → 整段 md 变转义原文，刷新复现）。
@@ -260,7 +303,7 @@
 
 ## 0.7.13（2026-09-02）· 交互双放宽：onclick 透传 + 下载回注脚本
 
-> 先生 2026-09-02 定调：可信模式下放行内联 onclick 自定义函数（还原「像写普通网页」的
+> 2026-09-02 定调：可信模式下放行内联 onclick 自定义函数（还原「像写普通网页」的
 > 交互写法），并让下载的 HTML 存档保留脚本交互。排查实录：settle 渲染走 `vcpVcShim`，
 > onclick 只认 `input('...')` 正则、其余 `on*` 剥除 → 自定义函数 onclick 点不动；
 > `downloadCard` 取 `card.outerHTML` 快照 → `<script>` 已被 extract 出 DOM，下载文件天然失活。
@@ -269,7 +312,7 @@
 - **`vcpVcShim` onclick 放宽**（lib/client.js）：input 桥逻辑保留；非 input 的 onclick 在可信
   模式由 **ref 直写原生 attribute**（`el.setAttribute('onclick', code)`）→ 浏览器原生 inline
   handler（函数由 `<script>` 全局定义）。第一版「小写 onclick 字符串透传给 React」实测点不动
-  （React 属性管线对事件名特殊处理、不保证落 attribute，先生 2026-09-02 实测定位），改 ref
+  （React 属性管线对事件名特殊处理、不保证落 attribute，2026-09-02 实测定位），改 ref
   直写后 GUI 与下载快照行为一致、验收通过；其它 `on*` 同规则。不可信模式维持剥离；
 - **下载回注脚本**（lib/client.js `downloadCard` + assets/vendor/vcp-engine-v1.js
   `extractTrustedScripts`）：引擎把每卡 `<script>` 源码按 uid 存入 `window.__vcpMsgScripts`
@@ -280,7 +323,7 @@
 
 ## 0.7.12（2026-09-02）· 卡尾 script 吞并：修复交互脚本溢出成源码
 
-> 先生实测：模型把交互 `<script>` 写在 vcp-root 闭合 `</div>` 之后（卡尾兄弟）时，切分只吞
+> 实测：模型把交互 `<script>` 写在 vcp-root 闭合 `</div>` 之后（卡尾兄弟）时，切分只吞
 > 卡尾 `<style>`、script 落 md → 官方 MarkdownText 把 `<script>` 转义显示成源码（溢出代码格式）。
 
 ### 变更
@@ -292,7 +335,7 @@
 ## 0.7.11（2026-09-02）· 根字体锁定改 DOM 守卫：流式丝滑 + settle 不回退
 
 > 0.7.10 的字符串追加方案（卡尾补 style 锁根字体）虽修回退，但追加 style 在流式中每帧
-> 位于正文尾部、随正文增长位置浮动 → 掉格式/字体不即时（先生实测）。0.7.11 弃字符串方案。
+> 位于正文尾部、随正文增长位置浮动 → 掉格式/字体不即时（实测）。0.7.11 弃字符串方案。
 
 ### 变更
 - **`VcpRootFontGuard`（display:contents 守卫组件）**：包住引擎产物，ref 挂载时（React
@@ -302,7 +345,7 @@
 - 移除 0.7.10 的 `vcpRootFontLock` 字符串追加实现（留存注释说明弃用原因）；
 - 回归 37+16 全绿、语法 OK。
 
-## 0.7.10（2026-09-02）· 根容器字体 settle 回退修复（先生实测「流式正常、完成回退」）
+## 0.7.10（2026-09-02）· 根容器字体 settle 回退修复（实测「流式正常、完成回退」）
 
 > 症状：根容器唯一字体声明（如 font-family:'Lanxi-叮叮' 内联）的卡，流式期间字体正常，
 > settle 后整卡回退系统字体。根因：引擎字体兜底 `#uid div{font-family:inherit !important}`
@@ -338,7 +381,7 @@
 
 ## 0.7.7（2026-09-02）· md 段级保护：官方 MarkdownText 畸形文本崩溃不连坐
 
-> 先生 alpha.5 实测：渲染历史消息时官方 MarkdownText 对个别畸形 md 文本抛
+> alpha.5 实测：渲染历史消息时官方 MarkdownText 对个别畸形 md 文本抛
 > `TypeError: Cannot read properties of undefined (reading 'code')`（bundle 内部 wp/Ul/Mp，
 > 官方解析器缺陷）——此前整条消息共用一个错误边界 → 卡也被连带降级看不到。
 
@@ -347,7 +390,7 @@
   可见、console 记录错误便于定位畸形文本），同消息的卡 / 其它 md 段**正常渲染**；
 - renderMdSegment 全面接入段级保护（含异常降级 fallback 路径）。
 
-## 0.7.6（2026-09-02）· 艺术字黑体修复：字体路由 v1 路径归一（先生实测定位）
+## 0.7.6（2026-09-02）· 艺术字黑体修复：字体路由 v1 路径归一（实测定位）
 
 > 症状：新发艺术字卡全部黑体（历史卡正常）。根因：协议文档（DESIGN.md 等从 v1 复制）仍写
 > `/fonts/`（v1 路由），v2 路由为 `/fonts-v2/` → 模型照文档输出的卡内 `@font-face` url 404
@@ -361,7 +404,7 @@
 - **文档路径迁移**：DESIGN.md / VCP-INTERACTIONS.md / styles/_FONTS.md 的 `/fonts/` →
   `/fonts-v2/`、`/vendor/` → `/vendor-v2/`（模型后续按新文档输出正确路径）。
 
-## 0.7.5（2026-09-02）· 流式修复：f.jsx is not a function（先生 alpha.5 实测定位）
+## 0.7.5（2026-09-02）· 流式修复：f.jsx is not a function（alpha.5 实测定位）
 
 > 症状：文字逐字流式正常，但卡「一次性跳出」（settle 才出现）。根因：引擎引导把 React
 > 主对象当 f 传入，而引擎流式组装路径调用 `f.jsx(...)`——React 主对象没有 .jsx（在
@@ -374,7 +417,7 @@
   给 f 包装 jsx 故测试通过）——本次 alpha.5 实测流式一击定位；
 - 保留帧级诊断日志（`[vcp-v2-frame]` 500ms 节流，后续可移除）。
 
-## 0.7.4（2026-09-02）· 健壮性加固：崩溃永不全局化（先生实测「又崩一次」驱动）
+## 0.7.4（2026-09-02）· 健壮性加固：崩溃永不全局化（实测「又崩一次」驱动）
 
 > 0.7.3 的 hooks hotfix 未删净旧 return（空态 return 仍挡在 useEffect 前）→ 纯 tool-call
 > 回合仍会触发「hooks 数量不一致」→ slot abdicate → 全局还原成代码。0.7.4 彻底修复 + 加边界。
@@ -388,9 +431,9 @@
   下次复现即可定位真凶；
 - 保留 render 期 try/catch（异常 → 本条降级官方文本 + 完整栈）。
 
-## 0.7.3（2026-09-02）· IO 热窗：治「历史卡全量重建」卡顿（先生定调）
+## 0.7.3（2026-09-02）· IO 热窗：治「历史卡全量重建」卡顿（定调）
 
-> 先生实测「打开 DSH 越来越卡」——官方按批加载会话消息后一次性渲染，历史卡/图/程序越积越多，
+> 实测「打开 DSH 越来越卡」——官方按批加载会话消息后一次性渲染，历史卡/图/程序越积越多，
 > 打开/切会话时同步全量重建 + style 常驻累积。本版本为接入层热窗优化（引擎零改动）。
 
 ### 变更
@@ -402,7 +445,7 @@
   - 流式消息全程 full（永不占位/降级）；纯 md 消息不进 IO 逻辑（零额外开销）；
   - 升降级往返靠引擎缓存（整串 F.c + mermaid SVG cache）≈ 零成本；无 IO 环境自动降级为旧行为全量渲染。
 - 常量可调：`VCP_HOT_RADIUS` / `VCP_DEMOTE_DELAY`（client.js 顶部注释区）。
-- **hotfix（先生实测「看历史渲染好好的忽然还原成代码」根因）**：MyAssistantView 的
+- **hotfix（实测「看历史渲染好好的忽然还原成代码」根因）**：MyAssistantView 的
   `useEffect` 曾排在 `if (!hasVisible) return null` 之后——遇到纯 tool-call 回合消息会少调
   一次 effect → React「hooks 数量不一致」抛错 → slot 判定崩溃 abdicate → **全部消息退回
   官方渲染（HTML 转义成源码）**。修复：空态 return 移到全部 hooks 之后；另加渲染期
@@ -410,9 +453,9 @@
 - 已知取舍：首屏历史卡以占位出现约 1 帧后升级（等效「加载完成」观感）；IO/热窗属浏览器行为，
   node 单测不覆盖（回归集仍 37+16 全过，语法检查过）。
 
-## 0.7.2（2026-09-02）· 先生纠正：渲染零重写，复用 v1 引擎（最终架构）
+## 0.7.2（2026-09-02）· 纠正：渲染零重写，复用 v1 引擎（最终架构）
 
-> 先生：「v1 插件已经把流式/字体做到非常完美了！V2 只是要解决 alpha 前端装 V1 失败的问题，
+> 用户：「v1 插件已经把流式/字体做到非常完美了！V2 只是要解决 alpha 前端装 V1 失败的问题，
 > 完全不需要重新写代码！」0.7.1 自绘了渲染器，本版本废除自绘、整体复用 v1 引擎。
 
 ### 变更
@@ -425,13 +468,13 @@
     ——流式（半截卡也喂引擎，子块固化+样式长出）、uid 作用域化、文字 `!important` 字体锁权、
     KaTeX/Mermaid、自愈层全部继承 v1 引擎；
   - reasoning 折叠 / image 占位 / 开关 OFF 不注册 保留（接入层职责）。
-- **Mermaid 全形态（先生实测 2026-09-02 逐轮驱动）**：
-  - 卡内 language-mermaid 块（mindmap/flowchart/sequence/gantt）→ 引擎 pre>code 分支（先生实测成功路径）；甘特图超宽默认横向滚动（测试确认 A 方案最优，未改引擎）；
+- **Mermaid 全形态（实测 2026-09-02 逐轮驱动）**：
+  - 卡内 language-mermaid 块（mindmap/flowchart/sequence/gantt）→ 引擎 pre>code 分支（实测成功路径）；甘特图超宽默认横向滚动（测试确认 A 方案最优，未改引擎）；
   - **md 段裸 ```mermaid 围栏**（splitMermaidFence 切分，v1 亦未覆盖的能力超集）→ 转 `<pre><code class="language-mermaid">` 喂引擎（**形态必须 code 带 class**——pre 带 class 会先被 mermaidBlockConvert 转 div.mermaid 走弱分支不出图，实测修正）；
   - **initMermaidFallback**：MutationObserver 兜底——引擎 processMath 以 KaTeX 就绪为前置，漏渲时调用引擎自带 renderMermaidInContent 补枪（流式中不抢跑）；
   - 喂引擎前接引擎 fixBlank（卡内空行压缩，与 v1 宿主行为一致）；
   - ```` ```html ```` 围栏纯包装 vcp-root 剥离（v1 锚点 E 对齐）；
-- **行首约束修复（先生实测「说明文字崩坏」驱动）**：findVcpOpen 要求卡开标签位于行首——md 里作说明文字/行内提及的 `<div id="vcp-root">` 字样不再被误切成卡撕碎整条消息（与 v1 依赖 mdast html 块语义对齐）；
+- **行首约束修复（实测「说明文字崩坏」驱动）**：findVcpOpen 要求卡开标签位于行首——md 里作说明文字/行内提及的 `<div id="vcp-root">` 字样不再被误切成卡撕碎整条消息（与 v1 依赖 mdast html 块语义对齐）；
 - **tests**：slot-split 37 项（vcp/page/mermaid 围栏/行首约束）、engine-smoke 14 项（流式/整页/围栏结构）。
 - 已知取舍：image 块仅占位；引擎自带 console.debug 节流日志（与 v1 相同）。
 
@@ -439,5 +482,5 @@
 ## 0.7.1 / 0.7.0（2026-09-02）· 已废弃（中间探索版本）
 
 > 0.7.0 误做「vcp-root 工具协议」（tool.call.toolview 渲染），0.7.1 自绘 assistant-step
-> 渲染器——均被先生纠正后废弃：最终架构 = 官方 Slot 接入 + **v1 引擎零重写复用**（0.7.2）。
+> 渲染器——均被纠正后废弃：最终架构 = 官方 Slot 接入 + **v1 引擎零重写复用**（0.7.2）。
 > 细节见 git 历史，不再在本文档展开。

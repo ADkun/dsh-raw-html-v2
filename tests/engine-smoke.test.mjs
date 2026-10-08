@@ -13,10 +13,10 @@ import path from 'node:path'
 
 const HERE = path.dirname(fileURLToPath(import.meta.url))
 const require = createRequire(import.meta.url)
-const { JSDOM } = require('G:/AI/AI 助手/VCPChat-main/node_modules/jsdom')
+const { JSDOM } = require('jsdom')
 const dom = new JSDOM('<!doctype html><html><body></body></html>')
 const { window: domWindow, DOMParser, Node } = dom.window
-const React = require(path.resolve(HERE, '../node_modules/react'))
+const React = require('react')
 
 // ---- 1. 从 client.js 提取 vc/hp 真实实现 ----
 const client = readFileSync(path.resolve(HERE, '../lib/client.js'), 'utf8')

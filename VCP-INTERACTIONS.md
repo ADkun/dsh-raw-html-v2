@@ -8,7 +8,7 @@
 ## 原则
 
 1. **交互零 JS 优先**：折叠用 `<details>`、选项卡/手风琴用 radio/checkbox hack、轮播用 CSS 动画——都不需要脚本，下载快照后依然可用。
-2. **onclick 属性两条通道**：① `onclick="input('...')"` 永远可用——渲染层桥接为 React onClick → `window.__dshInput`，点击把文本填入输入框并发送；② 自定义函数 onclick（如 `onclick="switchTab(1)"`）在**可信模式**下由 `vcpVcShim` 以 **ref 直写原生 attribute**（`setAttribute('onclick', code)`）→ 浏览器原生 inline handler 生效（v0.7.13 起放宽，先生 2026-09-02 实测验收：第一版 React 透传点不动、ref 直写后 GUI 与下载快照一致生效），函数需由卡内 `<script>` 定义在全局作用域；不可信模式下仍剥除。
+2. **onclick 属性两条通道**：① `onclick="input('...')"` 永远可用——渲染层桥接为 React onClick → `window.__dshInput`，点击把文本填入输入框并发送；② 自定义函数 onclick（如 `onclick="switchTab(1)"`）在**可信模式**下由 `vcpVcShim` 以 **ref 直写原生 attribute**（`setAttribute('onclick', code)`）→ 浏览器原生 inline handler 生效（v0.7.13 起放宽，2026-09-02 实测验收：第一版 React 透传点不动、ref 直写后 GUI 与下载快照一致生效），函数需由卡内 `<script>` 定义在全局作用域；不可信模式下仍剥除。
 3. **流式注意**：流式输出过程中元素会被反复重建，**交互状态（展开/选中）可能重置**；交互请在流结束后使用。卡片结构（元素类型/文本/样式）在流式中稳定。
 4. **默认安全边界**（不可信模式）：script/iframe/object/embed 会被过滤（script 代码不执行）；href/src 仅放行 http/https/mailto/data:image/相对路径；style 中 `position:fixed`、`z-index>=1000`、`content:` 会被剥离。**可信模式例外见原则 5**。
 5. **可信模式边界**（localStorage `raw-html-v2.trusted==='1'` 或 `window.__DSH_TRUSTED__`）：`<script>` 放行（引擎 extract→DOM settle 后全局 eval，`__vcpTrustedRan` 幂等去重）；`on*` 属性**除 input 桥外，自定义函数经 ref 直写 attribute 放行**（见原则 2）；`javascript:` 协议的 href/src 依旧拒绝。
@@ -126,7 +126,7 @@
 
 ```html
 <pre class="language-mermaid"><code class="language-mermaid">flowchart TD&#10;  A[开始] --&gt; B{判断}&#10;  B --&gt;|是| C[完成]&#10;  B --&gt;|否| D[重试]</code></pre>
-<pre class="language-mermaid"><code class="language-mermaid">sequenceDiagram&#10;  蓝汐-&gt;&gt;先生: 输出卡片&#10;  先生--&gt;&gt;蓝汐: 反馈效果</code></pre>
+<pre class="language-mermaid"><code class="language-mermaid">sequenceDiagram&#10;  蓝汐-&gt;&gt;用户: 输出卡片&#10;  用户--&gt;&gt;蓝汐: 反馈效果</code></pre>
 <pre class="language-mermaid"><code class="language-mermaid">gantt&#10;  title 排期&#10;  dateFormat YYYY-MM-DD&#10;  section 阶段&#10;  任务A :done, a1, 2026-08-20, 1d</code></pre>
 ```
 注意：mermaid 源码内的换行用 `&#10;`（HTML 实体），避免 vcp-root 出现空行；`>` 等符号用实体（`--&gt;`）。
@@ -177,7 +177,7 @@
 
 ## 9. 可信模式 · 卡片脚本通道（P2 · v7.2）
 
-> 先生 2026-09-02 定调：**脚本解禁为「非必要不写；能更好互动时允许写」**。
+> 2026-09-02 定调：**脚本解禁为「非必要不写；能更好互动时允许写」**。
 > 渲染器机制实录（排查「onclick 点不动」定位）：
 
 ### 9.1 脚本如何执行（机制）
@@ -186,7 +186,7 @@
 - **提取**：引擎 `extractTrustedScripts(html)` 在解析前把 `<script>…</script>` 内容整体剥出进队（`<script src>` 外链不支持）。
 - **执行**：v0.7.22 起 **extract 后立即 flush**（parseFrag 内）——流式与全量路径都会排程执行，不再依赖 settle 帧；`flushTrustedScripts` 用 `(0,eval)(decodeEntities(code))` **全局执行**（setTimeout(0) + rAF 双帧 + 500ms 兜底保证 DOM 挂载后至少执行一次）；`window.__vcpTrustedRan` 按脚本 id 幂等去重。
 - **不可信模式**：script 代码被提取后**丢弃不执行**，与旧版一致。
-- **⚠️放置铁律（先生 0.7.27 实测）**：`<script>` 一律写在 **vcp-root 闭合 `</div>` 之后**（卡尾兄弟，渲染层吞并入卡）。**禁止放卡内**——流式中引擎面对未闭合 rawtext 会掉格式/字体错。
+- **⚠️放置铁律（0.7.27 实测）**：`<script>` 一律写在 **vcp-root 闭合 `</div>` 之后**（卡尾兄弟，渲染层吞并入卡）。**禁止放卡内**——流式中引擎面对未闭合 rawtext 会掉格式/字体错。
 
 ### 9.2 正确姿势（硬约束 · 违反即失效）
 

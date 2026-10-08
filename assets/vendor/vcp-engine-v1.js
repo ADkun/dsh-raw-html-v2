@@ -2,7 +2,7 @@
 /**
  * dsh-raw-html v7.0 —— 稳定区固化模块（注入 dsh-web-frontend bundle 用）。
  *
- * v7.0（自 v6.18 的一次大迭代 · 渲染器「自愈层」体系建立，先生实测驱动）：
+ * v7.0（自 v6.18 的一次大迭代 · 渲染器「自愈层」体系建立，实测驱动）：
  *   - 流式样式即时生效：未闭合 <style> 补闭合 + closeBraces 花括号平衡 +
  *     style 前置规范（背景/字体随流式逐步长出，不再最后才闪现）
  *   - 消息级作用域化（#vcp-root → #vcp-msg-N）+ 文字声明 !important 保险
@@ -13,34 +13,34 @@
  *   - v6.33 自愈层再添：字体链继承兜底（未声明字体的元素强制继承根容器字体——
  *     防皮肤劫持导致字符级 fallback 字面率不一，如「登陆」显小；根容器字体链
  *     CSS 锁定 + 常用文字标签逐条 inherit，双保险，不依赖 :where()）
- *   - v6.33b 圆角不兜底（先生定调）：border-radius 是装饰不是结构，AI 没写可能
+ *   - v6.33b 圆角不兜底（定调）：border-radius 是装饰不是结构，AI 没写可能
  *     是「要直角」（报纸/极简风故意省略容器装饰）——强补圆角会误判意图；结构
  *     兜底照做、圆角默认直角，审美仍由 AI 决定
- *   - v6.33c DOM 层最终强制（先生实测 CSS 注入仍显小后升级）：React 挂载后对
+ *   - v6.33c DOM 层最终强制（实测 CSS 注入仍显小后升级）：React 挂载后对
  *     「无内联字体且未被显式字体选择器命中」的文字元素直接 setProperty
  *     ('font-family','inherit','important')——内联 !important 是最高优先级，
  *     任何选择器规则（含皮肤）都压不住；AI 显式书法/等宽字体（内联或类规则）
  *     一律尊重；根容器兜底链被皮肤压住时同步锁定系统链
- *   - v6.33d 根因落网（先生三连问换来的认知）：「强调词小」不是字面率差异，
+ *   - v6.33d 根因落网（三连问换来的认知）：「强调词小」不是字面率差异，
  *     是 font-size 被皮肤 textRule 压制——类规则 boost 能保住 .t 自己的字号，
  *     但「没写 font-size 的强调词 span」只有继承值，输给皮肤直接作用的
  *     font-size !important。v6.33d 把 font-family / font-size / font-weight /
  *     font-style / line-height / letter-spacing 全部锁成 inherit（仅覆盖未显式
  *     声明的属性；color/text-align 不锁——颜色是 AI 设计、对齐是布局）
- *   - v6.33e 版面收窄兜底（先生实测 5 张测试卡后定调）：AI 没写任何宽度时根容器
+ *   - v6.33e 版面收窄兜底（实测 5 张测试卡后定调）：AI 没写任何宽度时根容器
  *     默认 max-width:920px（报纸版心，不再拉满屏幕成整条色板）；AI 显式写了
  *     width/max-width（全宽或自定义宽度）→ 尊重不补
- *   - v6.33f 花括号平衡全路径兜底（先生实测卡 2 SVG 动画不转）：流式 tail 的
+ *   - v6.33f 花括号平衡全路径兜底（实测卡 2 SVG 动画不转）：流式 tail 的
  *     closeBraces 只覆盖「<style> 未闭合」；非流式（历史消息）<style> 已闭合但
  *     漏 } 时，浏览器把后续规则与 @keyframes 吞进前块 → 动画失效。现对每个闭合
  *     <style> 内的 CSS 也补平衡（只补净缺口数量的 }，多余 } 忽略，字符串内
  *     花括号配对抵消，误伤面极小）
- *   - v6.34 SVG 类动画中心自愈（先生实测卡 2 橙点不转）：CSS 类动画不经过
+ *   - v6.34 SVG 类动画中心自愈（实测卡 2 橙点不转）：CSS 类动画不经过
  *     guardChildren 的内联检查，<g> 的 transform-origin 走浏览器默认 → 整组绕
  *     画面原点转、非对称元素轨道不协调。DOM 层 getComputedStyle 判定「有动画且
  *     origin 是默认值」→ 补 transform-box:fill-box + transform-origin:center，
  *     动画围绕元素自身包围盒中心旋转；AI 显式 origin 尊重
- *   - v6.35 渲染开关三态化（先生定调 2026-08-29 · 上架申请书卡实测）：
+ *   - v6.35 渲染开关三态化（定调 2026-08-29 · 上架申请书卡实测）：
  *     启动自检：dsh.rawHtml 从未设置（undefined）→ 自动落盘 "1" 默认开启；
  *     html/code 两分支判定改 !== "0"（见 patch-frontend.cjs 锚点 A/E）——
  *     undefined 不再等于关闭，只有「</>」按钮显式设 "0" 才关闭。
@@ -74,7 +74,7 @@
       document.head.appendChild(_rm)
     }
   } catch (e) {}
-  // v6.35 渲染器兜底（先生定调 2026-08-29）：开关三态化自检——
+  // v6.35 渲染器兜底（定调 2026-08-29）：开关三态化自检——
   // dsh.rawHtml 从未被「</>」按钮写入（undefined）时，自动默认开启并落盘 "1"，
   // 消除「新环境/清缓存后一切 VCP 卡显示源码」的陷阱；用户显式设 "0"（</> 关闭）
   // 才真正关闭。只补「从未设置」，绝不覆盖用户已有的显式选择。
@@ -94,9 +94,9 @@
     var fn = typeof hp === 'function' ? hp : (typeof jd === 'function' ? jd : (typeof Sd === 'function' ? Sd : null))
     return fn ? fn(s) : {}
   }
-  // ---- 可信模式（Trusted Mode）v7.1 · 先生定调 2026-08-29 ----
+  // ---- 可信模式（Trusted Mode）v7.1 · 定调 2026-08-29 ----
   // 双人私密会话内容双方可信 → 正文可放行 script（WebGL/Shader/fetch 由此解锁）。
-  // v7.2（先生定调）：可信模式的「状态与开关 UI」迁入插件 client 层（lib/client.js）——
+  // v7.2（定调）：可信模式的「状态与开关 UI」迁入插件 client 层（lib/client.js）——
   //   window.__vcpTrusted 由插件定义并随插件启停；插件未加载（停用）时本函数返回 false，
   //   行为与旧版完全一致（script 截断、URL 白名单严格、on* 不放行）＝安全默认。
   // 机制：闭合 <script> 在 parseFrag 阶段被提取出 vdom，消息渲染完成后统一 eval 执行
@@ -113,7 +113,7 @@
     if (!isTrusted() || html.indexOf('<script') === -1) return html
     return html.replace(/<script\b[^>]*>([\s\S]*?)<\/script>/gi, function (m, code) {
       _trustedQueue.push({ id: 's' + (++_trustedSeq), code: code })
-      // 下载注册表（先生 2026-09-02 定调放宽）：uid → 脚本源码，供插件 downloadCard
+      // 下载注册表（2026-09-02 定调放宽）：uid → 脚本源码，供插件 downloadCard
       // 导出「自包含 HTML」时回注 <script>——否则 outerHTML 快照天然无脚本、下载文件失活。
       // 流式每帧同卡重复 extract：按 code 去重只存一份；scopeLast.uid 即当前卡的 vcp-msg-N。
       try {
@@ -135,7 +135,7 @@
   }
   // 多时机执行 + 幂等：setTimeout(0) 可能在 React 挂载前（历史重渲染尤甚），
   // rAF 两帧 + 500ms 兜底保证至少一次在 DOM 就绪后执行；window.__vcpTrustedRan
-  // 记录已执行 id，重复调用自动跳过（先生 2026-08-29 实测：黑洞脚本在历史
+  // 记录已执行 id，重复调用自动跳过（2026-08-29 实测：黑洞脚本在历史
   // 重渲染时静默退出，根因即 DOM 未挂载 + 单次执行时机过早）
   function flushTrustedScripts() {
     if (!_trustedQueue.length) return
@@ -175,7 +175,7 @@
   var IMG_RE = /!\[([^\]]*)\]\(([^)]+)\)/g
   var ANIM_RE = /animation:([^;"']*);?/g
 
-  // ---- 具名常量（魔数收拢 · 克莉丝 3.4）----
+  // ---- 具名常量（魔数收拢）----
   var CACHE_MAX = 200                // 整串缓存上限（F.c）
   var LOG_THROTTLE_MS = 2000         // [vcp-stable] 日志节流间隔
   var MERMAID_CACHE_MAX = 30         // mermaid SVG 渲染缓存上限
@@ -251,7 +251,7 @@
   // ---- 文字声明优先级提升（v6.19）：抵御字体/主题插件的全局覆盖 ----
   // 现象：卡片 <style> 内的 font-family/font-size/color 等声明无 important，
   // 被其他字体/主题插件注入的全局规则（如 *{font-family:...} 或 body 级
-  // !important）覆盖——先生实测主标题「华文行楷→楷体回落」56 号朱红大字
+  // !important）覆盖——实测主标题「华文行楷→楷体回落」56 号朱红大字
   // 未能渲染出卡片声明的字体。KaTeX 走 lockKatexStyles、容器开标签内联
   // style 走 parseOpen 的 ref 锁定，唯独 <style> 内声明缺一道优先级保险。
   // 解法：源码层给 <style> 内的【文字类声明】追加 !important——配合 #vcp-msg-N
@@ -260,9 +260,9 @@
   // 不动背景/布局/动画，卡内层叠关系不变；已有 important 跳过（幂等）。
   // 值里不会出现 `;` / `!` / `}`（CSS 声明分隔符），故用 [^;!}] 安全取全值。
   var BOOST_TEXT_DECL_RE = /(color|font-family|font-size|font-weight|font-style|line-height|letter-spacing|text-align|text-shadow)\s*:\s*([^;!}]+?)(!important)?\s*(;|})/gi
-  // @font-face 块保护（先生 · 2026-08-28 · 字库增刊实测）：@font-face 描述符
+  // @font-face 块保护（2026-08-28 · 字库增刊实测）：@font-face 描述符
   // 不允许 !important——一旦注入（font-family:'X' → font-family:'X'!important），
-  // 整个 @font-face 规则作废、字体加载失败（先生下载的鱼尾行书/狂派手书等
+  // 整个 @font-face 规则作废、字体加载失败（作者下载的鱼尾行书/狂派手书等
   // 全部回落系统字体）。解法：boost 前把 @font-face 块整体替换为占位符
   // （\u0001F<序号>\u0001，不含 ;!} 故不会被 DECL_RE 命中），boost 后再还原。
   var FACE_PLACEHOLDER_RE = /@font-face\s*\{[^}]*\}/gi
@@ -292,8 +292,8 @@
   // ---- 字体链继承兜底（v6.33）：未显式声明字体的元素强制继承根容器字体 ----
   // 现象：皮肤/主题插件注入带 !important 的全局 font-family 规则（特异性约 (0,2,0)），
   // 卡片里「没写字体」的元素（如标题里仅染色的强调 span）被劫持成皮肤字体；不同字符
-  // 命中的 fallback 字面率不一 → 同字号却显小（先生实测「登陆」比「海南昌江沿海」小）。
-  // v6.33 首版用 #uid :where(*) 单条规则，先生实测仍小——根因：applyRootGuard 补的
+  // 命中的 fallback 字面率不一 → 同字号却显小（实测「登陆」比「海南昌江沿海」小）。
+  // v6.33 首版用 #uid :where(*) 单条规则，实测仍小——根因：applyRootGuard 补的
   // 根容器 fontFamily 是普通内联（ref 锁定只认源码写了的内联属性），皮肤规则仍能劫持
   // 根容器本身；子元素 inherit 继承的是「被劫持的根容器」→ 链断。v6.33b 双保险：
   //   ① #uid{font-family:<系统链> !important} —— 锁定根容器（AI 内联/类显式字体
@@ -427,7 +427,7 @@
         if (inContainer) {
           if (subStart === -1) {
             // 容器首个子块前的【纯空白】（换行/缩进）跳过，不归 tail——否则紧跟开标签
-            // 的 <style> 被误归 tail，流式中反复重建、其内容泄漏成可见文本（先生 2026-09-04
+            // 的 <style> 被误归 tail，流式中反复重建、其内容泄漏成可见文本（2026-09-04
             // 新闻晚报卡实测：`<div id="vcp-root">\n<style>` 掉格式/溢出 CSS 源码）。
             // 非空白文本（真实内容）仍提前返回归 tail，行为不变。
             if (!/^\s*$/.test(gap)) { out.innerTail = i; return out }
@@ -577,7 +577,7 @@
 
   // 位置感知的花括号修复（v6.33f）：closeBraces 只在末尾补 }，救不回被吞的规则。
   // 现象：`.code{...;` 漏 }，后续 `.dot` 规则与 @keyframes 被浏览器吞进 .code
-  // 声明块（先生实测卡 2：SVG 动画不转）。
+  // 声明块（实测卡 2：SVG 动画不转）。
   // 启发式（块类型栈 + 选择器挪位）：CSS 里「普通规则块（选择器{...}）只能含声明、
   // 不能嵌套规则」——遇到 `{` 且当前块是 rule 块 → 前一个规则漏了 }：
   //   · 把「新 { 前刚输出的选择器文本」从 out 尾部截出，挪到补的 } 之后——
@@ -622,7 +622,7 @@
     if (!html) return null
     html = escapeUnclosedRawtext(html, isTail)
     html = extractTrustedScripts(html)
-    // F6（先生 2026-09-02 实测驱动 · 流式 script 永不 eval）：flushTrustedScripts 原只在
+    // F6（2026-09-02 实测驱动 · 流式 script 永不 eval）：flushTrustedScripts 原只在
     // fullRender 调用——流式增量路径 parseFrag(html) 提取 script 进队列后从不 flush →
     // 注册表有 code、函数却未定义（页面点不动、刷新后全量渲染才生效，且 settle memo
     // 复用会跳过引擎 fullRender → eval 永不发生）。这里 extract 后立即 flush（队列空则
@@ -643,7 +643,7 @@
     }
     // 花括号平衡兜底（v6.33f）：流式 tail 的 closeBraces 只覆盖「<style> 未闭合」，
     // 且只在末尾补 }——非流式（历史消息/终帧）里 <style> 已闭合但漏 } 时，浏览器
-    // 会把后续规则与 @keyframes 吞进前一个规则块 → 动画失效、样式错乱（先生实测：
+    // 会把后续规则与 @keyframes 吞进前一个规则块 → 动画失效、样式错乱（实测：
     // 卡 2 漏 } + @keyframes 被吞 → SVG 动画不转）。此处对每个闭合 <style> 内的
     // CSS 做位置感知修复（closeBracesSmart：在新规则起始处就地补缺失的 }），
     // 只在真的不平衡时改动（平衡 CSS 原样返回）。
@@ -720,11 +720,11 @@
   //   box-sizing:border-box  → width:100% + padding 不再出框
   //   max-width:920px        → 缺宽度上限时默认收窄到报纸版心（v6.33e：AI 没写
   //                            任何宽度就拉满屏幕成整条色板；920px 版心形成
-  //                            「卡片」边界感——先生实测 5 张测试卡后定调）
+  //                            「卡片」边界感——实测 5 张测试卡后定调）
   //   overflow-wrap:break-word → 长 URL / 长英文词不撑破版面
   //   font-family            → 缺省字体时用系统无衬线链（防裸奔默认字体）
   // 宽度判断：AI 显式写了 width 或 max-width（全宽/自定义宽度意图）→ 尊重不补。
-  // 圆角不兜底（先生定调 · v6.33b）：border-radius 是装饰不是结构——AI 没写圆角
+  // 圆角不兜底（定调 · v6.33b）：border-radius 是装饰不是结构——AI 没写圆角
   //   ≠ 忘记，可能是报纸/极简风「要直角」而故意省略容器装饰；强补 24px 会误判
   //   AI 意图。结构兜底（背景/盒子/字体链）照兜，圆角默认直角（0），尊重设计。
   // 纯属性操作，每帧微秒级、零 token 消耗；与渲染器既有的 img 收敛 /
@@ -800,7 +800,7 @@
   }
 
   // ---- 文字对比度自愈（v6.32）：大背景 → code 背景 → code 字 三级阶梯 ----
-  // 模型（先生定）：大背景深 → code 背景浅 → code 字深；大背景浅 → code 背景深 →
+  // 模型（约定）：大背景深 → code 背景浅 → code 字深；大背景浅 → code 背景深 →
   // code 字浅——每级与相邻级保持对比。只修正 code 内的字色（大背景中无 code 的
   // 文字不动）；AI 写对的不干预。
   // 半透明的坑：code 背景半透明时，实际视觉色 = 与底层大背景叠加后的颜色，不能
@@ -897,8 +897,8 @@
   }
 
   // ---- 文字属性 DOM 强制（v6.33d）：视觉大小相关的文字属性统一锁继承 ----
-  // 先生实测链：v6.33 锁 font-family → 仍小；v6.33b CSS 双保险 → 仍小；
-  // v6.33c DOM 层锁 font-family → 仍小。**最终根因（先生三连问换来的认知）：
+  // 实测链：v6.33 锁 font-family → 仍小；v6.33b CSS 双保险 → 仍小；
+  // v6.33c DOM 层锁 font-family → 仍小。**最终根因（三连问换来的认知）：
   // 「小」不是字面率差异，是 font-size 被皮肤压制！**皮肤的 textRule 同时注入
   // font-size 与 font-family（均 !important，特异性约 (0,2,0)）。卡片类规则
   // boost 后 (1,1,0)!important 能保住 .t 自己的 19px，但「没写 font-size 的
@@ -938,7 +938,7 @@
     return map
   }
   // ---- SVG 动画中心自愈（v6.34）：CSS 类动画缺 transform-origin 时补 fill-box ----
-  // 先生实测（卡 2）：@keyframes 被救回后动画转起来了，但「橙色小点没转动、蓝色
+  // 实测（卡 2）：@keyframes 被救回后动画转起来了，但「橙色小点没转动、蓝色
   // 大圈在转」——CSS 类里的动画（.dot{animation:spin...}）不经过 guardChildren 的
   // 内联 style 检查（它只认 props.style），SVG <g> 的 transform-origin 走浏览器
   // 默认（view-box 原点），旋转中心不在元素自身 → 整组绕画面原点转，非对称元素
@@ -1041,10 +1041,10 @@
       return '<div class="mermaid" style="position:relative;display:block;width:100%;box-sizing:border-box;margin:14px 0;background:#ffffff;border:1px solid #e2e8f0;border-radius:12px;box-shadow:0 1px 4px rgba(15,23,42,.06);"><div class="vcp-mermaid-view" style="overflow:auto;max-height:' + MERMAID_MAX_HEIGHT + ';padding:16px 14px;text-align:center;">' + src + '</div></div>'
     })
   }
-  // v6.36 code 内容实体保护（先生 · 2026-08-29 · 交付单 code 块露代码实测）：
+  // v6.36 code 内容实体保护（2026-08-29 · 交付单 code 块露代码实测）：
   // 模型在 <pre><code> 里展示 HTML 代码时，写 `&lt;div`（已转义）或裸 `<div`，
   // 经 DOMParser 解码/解析后会被当成【真实标签】——未闭合的 div 把后续
-  // </span></code></pre> 全吞成文本露出（先生交付单实测：case"html":</span> 可见）。
+  // </span></code></pre> 全吞成文本露出（交付单实测：case"html":</span> 可见）。
   // 修复：mermaid 转换之后（mermaid pre 已转 div，不受影响），对 <code> 内容做
   // 实体保护——白名单内联标签（span/b/em/i/strong，AI 常用高亮）占位保留，
   // 其余裸 < / > 全部转义 &lt; / &gt;；已有实体（&lt;div）不含裸 <，天然幂等。
@@ -1065,16 +1065,16 @@
       return '<pre' + attrs + '>' + out + '</pre>'
     })
   }
-  // v6.37 卡片前空行修复（先生 · 2026-08-29 · 「提交数 ≥ 10」卡实测）：
+  // v6.37 卡片前空行修复（2026-08-29 · 「提交数 ≥ 10」卡实测）：
   // CommonMark type 6 规则：<div> 等块级标签【不能打断段落】——消息若以
   // 「文字前言 + 换行 + <div id="vcp-root">」（中间无空行）输出，mdast 会把
   // <div> 开标签当【段落内联 HTML】，后续 <div class="paper"> 等全部脱离
   // vcp-root 变成兄弟节点 → 根容器背景生效（#vcp-root 规则仍命中）但子选择器
-  // （.paper/.q/.cmp…）全部失效 → 先生实测「最外围框住、内部格式全掉」。
+  // （.paper/.q/.cmp…）全部失效 → 实测「最外围框住、内部格式全掉」。
   // 修复：md 解析前把「非换行字符 + 换行 + <div id="vcp-root"」之间的换行
   // 补成空行（文字段落结束、卡片 htmlFlow 从新块开始）；幂等（重复应用不叠加）、
   // 无 div 不动、消息以 <div> 开头不动。由 bundle 的 bc 组件在解析前调用。
-  // v6.38 卡片内部空行压缩（先生 · 2026-08-29 · 全文一字不漏复现）：
+  // v6.38 卡片内部空行压缩（2026-08-29 · 全文一字不漏复现）：
   // CommonMark type 6 的 HTML 块【遇到空行即结束】——AI 在卡片内部排版时
   // 加了空行（如 .sub 与 .sec 之间），mdast 会把卡片按空行拆成多个 html
   // 片段（每段各自 case"html" → render 未闭合片段）→ 结构撕裂显示源码。
@@ -1106,7 +1106,7 @@
     // 流式：未闭合标签防御——仅当整个 html 连一个 '>' 都没有（首个开标签写到一半）
     // 才不渲染；末尾标签未闭合是流式常态，交给 v6 的 incomplete/tail 增量处理。
     if (v.indexOf('>') === -1) return f.jsx(f.Fragment, { children: [] })
-    // RAWTEXT 跨帧续接 v3（先生 2026-09-02 三轮复测驱动）：根因 = 容器闭合帧 fullRender
+    // RAWTEXT 跨帧续接 v3（2026-09-02 三轮复测驱动）：根因 = 容器闭合帧 fullRender
     // resetF 后，卡尾 script 帧走 else 分支【从 0 全量重扫】→ 已闭合的卡容器被当新开重建、
     // tailSrc=v.slice(r.open.end) 把整卡+script 文本化泄漏成尾部残渣（短 script 帧少被
     // settle 掩盖、长 script 显形）。v3：v 含 script 期间一律不进 else——
@@ -1330,7 +1330,7 @@
 
   // KaTeX 字体映射：根据 span 的 class 推断其应使用的字体（改名版 _VD）。
   // 主题/皮肤插件的全局 `!important` 会覆盖 .katex 的 font-family 声明与
-  // \textcolor 的内联 color → 公式 fallback 普通字体 + 颜色全单色（先生实测）。
+  // \textcolor 的内联 color → 公式 fallback 普通字体 + 颜色全单色（实测）。
   // 解法：渲染后对每个 span 用【内联 !important】锁回正确字体/颜色（内联
   // important 是 CSS 优先级天花板，任何样式表规则都无法覆盖）。
   function katexFontFor(cls) {
@@ -1674,7 +1674,7 @@
     }, MATH_DEBOUNCE_MS)
   }
 
-  // ---- VCP 色彩引擎：data-vcp-* → --vcp-* CSS 变量（自 B 移植 · 克莉丝 2026-08-24）----
+  // ---- VCP 色彩引擎：data-vcp-* → --vcp-* CSS 变量（自 B 移植 · 2026-08-24）----
   // 引擎（assets/vendor/VCPColorEngine.js）由 client.js 经 /vendor 加载，挂 window.VCPColorEngine。
   // 模型只写声明（data-vcp-preset / data-vcp-soul / data-vcp-accent），hex 由引擎确定性生成
   // ——流式重建结果恒定、对比度/色域闭环保证。变量注入走 style 对象或 el.style.setProperty，
